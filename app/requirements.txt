@@ -1,0 +1,6 @@
+pyserial>=3.5
+
+# Nota: se usa pygame-ce (Community Edition) en vez de "pygame" a secas.
+# Es 100% compatible (mismo "import pygame") y tiene binarios listos para
+# instalar en versiones recientes de Python, evitando errores de compilacion.
+pygame-ce>=2.5

@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Arduino
+*.hex
+
+# Editores / OS
+.vscode/
+.DS_Store
+Thumbs.db
