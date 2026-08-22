@@ -1,6 +1,7 @@
 pyserial>=3.5
 
-# Nota: se usa pygame-ce (Community Edition) en vez de "pygame" a secas.
-# Es 100% compatible (mismo "import pygame") y tiene binarios listos para
-# instalar en versiones recientes de Python, evitando errores de compilacion.
-pygame-ce>=2.5
+# La interfaz visual usa Tkinter, que viene incluido de fabrica con
+# Python (no requiere instalar nada mas). Se eligio Tkinter en vez de
+# una libreria grafica externa (como pygame) para evitar problemas de
+# antivirus / Smart App Control de Windows bloqueando DLLs de terceros,
+# y para que la instalacion sea lo mas simple posible en cualquier PC.

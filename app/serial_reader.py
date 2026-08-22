@@ -1,7 +1,7 @@
 """
 Manejo de la conexion serie con el Arduino.
 
-Corre en un hilo aparte para no trabar el dibujo de la interfaz (Pygame)
+Corre en un hilo aparte para no trabar el dibujo de la interfaz (Tkinter)
 mientras se espera texto por el puerto serie.
 """
 

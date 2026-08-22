@@ -1,5 +1,5 @@
 """
-The Monkey Parking - Layout visual (Python + Pygame)
+The Monkey Parking - Layout visual (Python + Tkinter)
 ---------------------------------------------------------------
 Se conecta al Arduino por USB/Serie y dibuja en tiempo real:
   - Las plazas del estacionamiento (ocupadas/libres).
@@ -7,125 +7,115 @@ Se conecta al Arduino por USB/Serie y dibuja en tiempo real:
   - El estado de la pluma (abierta/cerrada).
   - Un aviso de "LLENO" cuando corresponda.
 
+Se usa Tkinter (incluido de fabrica con Python) en vez de una libreria
+grafica externa, para que no haga falta instalar nada mas alla de
+"pyserial" y para evitar problemas con antivirus / Smart App Control de
+Windows bloqueando DLLs de terceros.
+
 Ejecutar con:  python main.py
 """
 
-import sys
-
-import pygame
+import tkinter as tk
 
 import config
 from serial_reader import EstadoEstacionamiento, LectorSerial
 
 # ---------------------- COLORES ----------------------
-NEGRO = (20, 20, 24)
-BLANCO = (240, 240, 240)
-GRIS = (70, 74, 84)
-GRIS_CLARO = (110, 115, 128)
-VERDE = (46, 204, 113)
-ROJO = (231, 76, 60)
-AMARILLO = (241, 196, 15)
-AZUL = (52, 152, 219)
+NEGRO = "#141418"
+BLANCO = "#f0f0f0"
+GRIS_CLARO = "#6e7380"
+VERDE = "#2ecc71"
+ROJO = "#e74c3c"
+AMARILLO = "#f1c40f"
+AZUL = "#3498db"
 
 
-def dibujar_texto(pantalla, texto, tamano, color, centro, negrita=False):
-    fuente = pygame.font.SysFont("consolas", tamano, bold=negrita)
-    superficie = fuente.render(texto, True, color)
-    rect = superficie.get_rect(center=centro)
-    pantalla.blit(superficie, rect)
-    return rect
+class AppEstacionamiento:
+    def __init__(self, raiz, estado: EstadoEstacionamiento):
+        self.raiz = raiz
+        self.estado = estado
 
+        raiz.title("The Monkey Parking")
+        raiz.configure(bg=NEGRO)
+        raiz.geometry(f"{config.ANCHO_VENTANA}x{config.ALTO_VENTANA}")
+        raiz.bind("<Escape>", lambda _evento: raiz.destroy())
 
-def dibujar_plazas(pantalla, ocupados, capacidad, origen, ancho_total):
-    """Dibuja los cajones de estacionamiento; los primeros 'ocupados' en rojo."""
-    capacidad = max(capacidad, 1)
-    margen = 12
-    ancho_cajon = (ancho_total - margen * (capacidad - 1)) / capacidad
-    alto_cajon = 120
+        self.canvas = tk.Canvas(
+            raiz,
+            width=config.ANCHO_VENTANA,
+            height=config.ALTO_VENTANA,
+            bg=NEGRO,
+            highlightthickness=0,
+        )
+        self.canvas.pack(fill="both", expand=True)
 
-    for i in range(capacidad):
-        x = origen[0] + i * (ancho_cajon + margen)
-        y = origen[1]
-        rect = pygame.Rect(x, y, ancho_cajon, alto_cajon)
+        self._actualizar()
 
-        ocupado = i < ocupados
-        color = ROJO if ocupado else VERDE
-        pygame.draw.rect(pantalla, color, rect, border_radius=8)
-        pygame.draw.rect(pantalla, BLANCO, rect, width=2, border_radius=8)
+    def _texto(self, x, y, texto, tamano, color, negrita=False, ancla="center"):
+        fuente = ("Consolas", tamano, "bold" if negrita else "normal")
+        self.canvas.create_text(x, y, text=texto, fill=color, font=fuente, anchor=ancla)
 
-        etiqueta = "OCUPADO" if ocupado else "LIBRE"
-        dibujar_texto(pantalla, etiqueta, 14, NEGRO, rect.center)
-        dibujar_texto(pantalla, f"P{i + 1}", 16, BLANCO, (rect.centerx, rect.top + 16), negrita=True)
+    def _dibujar_plazas(self, ocupados, capacidad, origen_x, origen_y, ancho_total):
+        capacidad = max(capacidad, 1)
+        margen = 12
+        alto_cajon = 120
+        ancho_cajon = (ancho_total - margen * (capacidad - 1)) / capacidad
 
+        for i in range(capacidad):
+            x0 = origen_x + i * (ancho_cajon + margen)
+            y0 = origen_y
+            x1 = x0 + ancho_cajon
+            y1 = y0 + alto_cajon
 
-def dibujar_pluma(pantalla, centro, abierta):
-    base_x, base_y = centro
-    pygame.draw.circle(pantalla, GRIS_CLARO, (base_x, base_y), 10)
+            ocupado = i < ocupados
+            color = ROJO if ocupado else VERDE
+            self.canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline=BLANCO, width=2)
 
-    largo = 90
-    if abierta:
-        # Pluma vertical (levantada).
-        extremo = (base_x, base_y - largo)
-        color = VERDE
-    else:
-        # Pluma horizontal (bloqueando el paso).
-        extremo = (base_x + largo, base_y)
-        color = ROJO
+            etiqueta = "OCUPADO" if ocupado else "LIBRE"
+            self._texto((x0 + x1) / 2, (y0 + y1) / 2, etiqueta, 11, NEGRO)
+            self._texto((x0 + x1) / 2, y0 + 16, f"P{i + 1}", 13, BLANCO, negrita=True)
 
-    pygame.draw.line(pantalla, color, (base_x, base_y), extremo, 10)
+    def _dibujar_pluma(self, x, y, abierta):
+        self.canvas.create_oval(x - 10, y - 10, x + 10, y + 10, fill=GRIS_CLARO, outline="")
 
+        largo = 90
+        if abierta:
+            extremo = (x, y - largo)
+            color = VERDE
+        else:
+            extremo = (x + largo, y)
+            color = ROJO
 
-def main():
-    pygame.init()
-    pygame.display.set_caption("The Monkey Parking")
-    pantalla = pygame.display.set_mode((config.ANCHO_VENTANA, config.ALTO_VENTANA))
-    reloj = pygame.time.Clock()
+        self.canvas.create_line(x, y, extremo[0], extremo[1], fill=color, width=10, capstyle="round")
 
-    estado = EstadoEstacionamiento()
-    lector = LectorSerial(estado)
-    lector.start()
+    def _actualizar(self):
+        self.canvas.delete("all")
 
-    ejecutando = True
-    while ejecutando:
-        for evento in pygame.event.get():
-            if evento.type == pygame.QUIT:
-                ejecutando = False
-            elif evento.type == pygame.KEYDOWN and evento.key == pygame.K_ESCAPE:
-                ejecutando = False
-
-        datos = estado.snapshot()
+        datos = self.estado.snapshot()
         disponibles = max(datos["capacidad"] - datos["ocupados"], 0)
-
-        pantalla.fill(NEGRO)
+        ancho = config.ANCHO_VENTANA
 
         # --- Encabezado ---
-        dibujar_texto(pantalla, "THE MONKEY PARKING", 30, BLANCO,
-                       (config.ANCHO_VENTANA // 2, 40), negrita=True)
+        self._texto(ancho // 2, 40, "THE MONKEY PARKING", 24, BLANCO, negrita=True)
 
         # --- Contador digital ---
         color_contador = ROJO if datos["lleno"] else VERDE
-        dibujar_texto(pantalla, f"{disponibles}", 90, color_contador,
-                       (config.ANCHO_VENTANA // 2, 130), negrita=True)
-        dibujar_texto(pantalla, f"Plazas disponibles de {datos['capacidad']}", 20, BLANCO,
-                       (config.ANCHO_VENTANA // 2, 185))
+        self._texto(ancho // 2, 110, f"{disponibles}", 70, color_contador, negrita=True)
+        self._texto(ancho // 2, 170, f"Plazas disponibles de {datos['capacidad']}", 16, BLANCO)
 
         # --- Plazas ---
-        dibujar_plazas(pantalla, datos["ocupados"], datos["capacidad"],
-                        origen=(50, 230), ancho_total=config.ANCHO_VENTANA - 100)
+        self._dibujar_plazas(datos["ocupados"], datos["capacidad"], 50, 210, ancho - 100)
 
         # --- Pluma ---
-        dibujar_texto(pantalla, "Pluma", 18, BLANCO, (150, 400))
-        dibujar_pluma(pantalla, (150, 440), datos["pluma_abierta"])
+        self._texto(150, 380, "Pluma", 14, BLANCO)
+        self._dibujar_pluma(150, 420, datos["pluma_abierta"])
         estado_pluma_txt = "ABIERTA" if datos["pluma_abierta"] else "CERRADA"
-        dibujar_texto(pantalla, estado_pluma_txt, 18,
-                       VERDE if datos["pluma_abierta"] else ROJO, (150, 500))
+        self._texto(150, 480, estado_pluma_txt, 14, VERDE if datos["pluma_abierta"] else ROJO)
 
         # --- Aviso de lleno ---
         if datos["lleno"]:
-            banner = pygame.Rect(0, 520, config.ANCHO_VENTANA, 50)
-            pygame.draw.rect(pantalla, ROJO, banner)
-            dibujar_texto(pantalla, "ESTACIONAMIENTO LLENO - ENTRADA BLOQUEADA", 22, BLANCO,
-                           banner.center, negrita=True)
+            self.canvas.create_rectangle(0, 500, ancho, 550, fill=ROJO, outline="")
+            self._texto(ancho // 2, 525, "ESTACIONAMIENTO LLENO - ENTRADA BLOQUEADA", 18, BLANCO, negrita=True)
 
         # --- Estado de conexion ---
         if datos["conectado"]:
@@ -134,15 +124,23 @@ def main():
         else:
             texto_conexion = datos["ultimo_error"] or "Buscando Arduino..."
             color_conexion = AMARILLO
-        dibujar_texto(pantalla, texto_conexion, 16, color_conexion,
-                       (config.ANCHO_VENTANA // 2, config.ALTO_VENTANA - 20))
+        self._texto(ancho // 2, config.ALTO_VENTANA - 20, texto_conexion, 13, color_conexion)
 
-        pygame.display.flip()
-        reloj.tick(30)
+        self.raiz.after(100, self._actualizar)
 
-    lector.detener()
-    pygame.quit()
-    sys.exit(0)
+
+def main():
+    estado = EstadoEstacionamiento()
+    lector = LectorSerial(estado)
+    lector.start()
+
+    raiz = tk.Tk()
+    AppEstacionamiento(raiz, estado)
+
+    try:
+        raiz.mainloop()
+    finally:
+        lector.detener()
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ real según lo que hace el Arduino.
     a permitir la entrada.
 - El Arduino manda todo este estado por el cable USB (puerto serie) a la
   laptop.
-- Una app de Python (con Pygame) dibuja el estacionamiento: plazas
+- Una app de Python (con Tkinter, incluido de fábrica con Python) dibuja el estacionamiento: plazas
   ocupadas/libres, el número de **plazas disponibles en grande**, el
   estado de la pluma, y un aviso de "LLENO" cuando corresponde.
 
@@ -58,7 +58,7 @@ TheMonkeyParking/
 ├── firmware/
 │   └── parking_barrier.ino      <- codigo que va DENTRO del Arduino
 ├── app/
-│   ├── main.py                  <- app visual (Pygame)
+│   ├── main.py                  <- app visual (Tkinter)
 │   ├── serial_reader.py         <- lectura del puerto serie
 │   ├── config.py                <- configuracion (puerto, tamano ventana)
 │   └── requirements.txt         <- dependencias de Python
@@ -124,10 +124,11 @@ TheMonkeyParking/
    ```bash
    pip install -r requirements.txt
    ```
-   > Esto instala `pyserial` (para hablar con el Arduino) y `pygame-ce`
-   > (para dibujar la interfaz). Se usa `pygame-ce` en vez de `pygame`
-   > porque tiene instaladores listos para usar en versiones recientes
-   > de Python, evitando errores de compilación.
+   > Esto instala `pyserial` (para hablar con el Arduino). La interfaz
+   > visual usa `Tkinter`, que ya viene incluido de fábrica con Python,
+   > así que no hace falta instalar ninguna librería gráfica extra —
+   > esto también evita problemas de antivirus / Smart App Control de
+   > Windows bloqueando DLLs de terceros.
 
 ## Paso 4: Ejecutar todo junto
 
@@ -186,5 +187,5 @@ automáticamente del Arduino, no hace falta tocar nada en Python.
 | El servo tiembla o el Arduino se reinicia al moverse | Falta de corriente. Alimentá el servo desde una fuente externa de 5V (compartiendo GND con el Arduino) en vez del pin 5V del Uno. |
 | Un sensor no detecta nada / detecta todo el tiempo | Puede estar invertida la lógica del sensor. Cambiá `SENSOR_ACTIVO_EN_BAJO` a `false` en el `.ino` y volvé a subir. |
 | La app de Python dice "Buscando Arduino..." para siempre | Verificá que no haya otro programa (como el Monitor Serie) usando el puerto, y que el puerto en `config.py` sea el correcto. |
-| Error al instalar `pygame` | Usá `pygame-ce` (ya está en `requirements.txt`), que trae instaladores listos para versiones nuevas de Python. |
+| Error `ImportError: DLL load failed... Application Control policy` | Es Smart App Control de Windows bloqueando una librería gráfica externa. La app ya usa `Tkinter` (incluido con Python) para evitar justamente este problema; si aparece, asegurate de tener la última versión de `main.py` del repositorio. |
 | La pluma no bloquea la entrada estando lleno | Confirmá que `CAPACIDAD_MAXIMA` en el `.ino` coincida con la cantidad real de cajones, y que el sketch actualizado ya esté subido al Arduino. |
